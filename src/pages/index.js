@@ -19,8 +19,9 @@ export default function Home() {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const volumeSmoothRef = useRef(0);
 
-  // --- Audio-driven lip-sync loop ---
+  // --- Audio-driven lip-sync loop (improved) ---
   const startLipSync = useCallback((stream) => {
     if (!stream) return;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -38,38 +39,54 @@ export default function Home() {
     const draw = () => {
       if (!canvas || !analyserRef.current) return;
 
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      analyserRef.current.getByteFrequencyData(dataArray);
+      const dataArray = new Uint8Array(analyserRef.current.fftSize);
+      analyserRef.current.getByteTimeDomainData(dataArray);
 
-      // Calculate average volume
+      // Compute RMS volume (0–1)
       let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        sum += dataArray[i];
+      for (let i = 0; i < dataArray.length; i++) {
+        const normalized = (dataArray[i] - 128) / 128;
+        sum += normalized * normalized;
       }
-      const avg = sum / bufferLength;
+      const rms = Math.sqrt(sum / dataArray.length);
+      const rawVolume = Math.min(rms * 2, 1); // scale up a bit
 
-      // Map volume to mouth openness (0–1)
-      const openness = Math.min(avg / 80, 1);
+      // Smooth the volume (low-pass filter)
+      volumeSmoothRef.current = volumeSmoothRef.current * 0.8 + rawVolume * 0.2;
+      const volume = volumeSmoothRef.current;
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw mouth based on openness
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
+      const w = canvas.width;
+      const h = canvas.height;
+      const centerX = w / 2;
+      const centerY = h / 2 + 5; // slight offset for face position
 
-      // Outer lips (ellipse)
-      ctx.fillStyle = '#e53e3e';
+      // Mouth width and base gap
+      const mouthWidth = 60;
+      const baseGap = 4;
+      const maxGap = 25;
+      const gap = baseGap + volume * maxGap;
+
+      // Draw upper lip (arc from left to right, upward)
+      ctx.strokeStyle = '#e53e3e';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.ellipse(centerX, centerY, 35, 15 + openness * 20, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(centerX, centerY - gap / 2, mouthWidth / 2, Math.PI, 0, true);
+      ctx.stroke();
 
-      // Inner mouth (darker)
-      if (openness > 0.1) {
+      // Draw lower lip (arc from left to right, downward)
+      ctx.beginPath();
+      ctx.arc(centerX, centerY + gap / 2, mouthWidth / 2, 0, Math.PI, true);
+      ctx.stroke();
+
+      // Fill mouth interior when open
+      if (gap > baseGap + 5) {
         ctx.fillStyle = '#4a0000';
         ctx.beginPath();
-        ctx.ellipse(centerX, centerY, 25, 5 + openness * 15, 0, 0, Math.PI * 2);
+        ctx.ellipse(centerX, centerY, mouthWidth / 2 - 3, gap / 2, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -129,7 +146,7 @@ export default function Home() {
     setInCall(true);
   }, [remotePeerId, startLocalCamera]);
 
-  // --- Speech recognition & translation (unchanged) ---
+  // --- Speech recognition & translation ---
   useEffect(() => {
     if (!inCall) return;
 
@@ -223,9 +240,9 @@ export default function Home() {
               />
               <canvas
                 ref={canvasRef}
-                width={200}
-                height={150}
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/3 h-auto border-2 border-red-500 rounded-lg"
+                width={160}
+                height={120}
+                className="absolute bottom-5 left-1/2 transform -translate-x-1/2 w-[30%] h-[25%]"
               />
             </div>
             <div className="flex-1">
