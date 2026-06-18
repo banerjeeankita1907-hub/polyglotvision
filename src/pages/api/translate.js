@@ -1,18 +1,30 @@
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   const { text, source = 'en', target = 'es' } = req.body;
-  if (!text) return res.status(400).json({ error: 'No text provided' });
+
+  if (!text) {
+    return res.status(400).json({ error: 'No text provided' });
+  }
+
+  const langPair = `${source}|${target}`;
 
   try {
-    const response = await fetch('https://translate.argosopentech.com/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: text, source, target, format: 'text' }),
-    });
+    // MyMemory translation API – completely free, no API key required
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+
+    const response = await fetch(url);
     const data = await response.json();
-    res.status(200).json({ translatedText: data.translatedText || text });
+
+    if (data.responseStatus === 200) {
+      const translatedText = data.responseData.translatedText;
+      return res.status(200).json({ translatedText });
+    } else {
+      return res.status(500).json({ error: 'Translation failed', details: data.responseStatus });
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Translation failed' });
+    return res.status(500).json({ error: 'Translation failed', details: error.message });
   }
 }
