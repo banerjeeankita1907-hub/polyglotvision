@@ -17,6 +17,7 @@ Break language barriers instantly – all in your browser.
 - Vercel (deployment)
 
 ## Live Demo
+https://polyglotvision.vercel.app/
 
 ## Run locally
 ```bash
