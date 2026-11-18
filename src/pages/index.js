@@ -193,7 +193,7 @@ export default function Home() {
           <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
             PolyglotVision
           </h1>
-          <p className="text-xl text-gray-400">Speak, translate, sync – live.</p>
+          <p className="text-xl text-gray-400">Browser-based calls, translated captions, and audio-reactive visuals.</p>
 
           <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl max-w-md mx-auto space-y-4">
             <p className="text-sm text-gray-400">Your Peer ID</p>
